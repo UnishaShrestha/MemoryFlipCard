@@ -1,8 +1,11 @@
 import java.awt.*;
 import java.awt.event.*;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import javax.swing.*;
 import java.util.Collections;
+import javax.sound.sampled.*;
 
 public class matchCards {
     class card{
@@ -17,7 +20,6 @@ public class matchCards {
         public String toString(){
             return cardName;
         }
-
     }
 
     String[] cardList = { //tracks cardname
@@ -32,41 +34,93 @@ public class matchCards {
     };
     int rows = 4;
     int columns = 4;
-    int cardHeight = 128;
-    int cardWidth = 90;
+    int cardHeight = 150;
+    int cardWidth = 110;
+    int boardHeight = rows * cardHeight;
+    int boardWidth = columns * cardWidth;
 
     ArrayList<card> cardSet;
     ImageIcon cardBackImageIcon;
 
-    int boardHeight = rows * cardHeight;
-    int boardWidth = columns * cardWidth;
-
     JFrame frame = new JFrame("Memory Flip Card Game");
-    JLabel textLabel = new JLabel();
+    JLabel errorLabel = new JLabel();
+    JLabel scoreLabel = new JLabel();
     JPanel textPanel = new JPanel(); 
     JPanel boardPanel = new JPanel();
+    JButton restartButton = new JButton();
 
     int errorCount = 0;
+    int score = 0;
+    final int totalPairs = 8;
+
     ArrayList<JButton> board;
+    Timer hideCardTimer;
+    boolean gameReady = false;
+    JButton card1Selected;
+    JButton card2Selected;
 
     matchCards(){
         setupCards();
         suffleCards();
 
-        //frame.setVisible(true);
+        frame.setVisible(true);
         frame.setSize(boardWidth, boardHeight);
         frame.setLocationRelativeTo(null);
         frame.setResizable(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        textLabel.setFont(new Font("Arial", Font.PLAIN, 20));
-        textLabel.setHorizontalAlignment(JLabel.CENTER);
-        textLabel.setText("Errors: "+Integer.toString(errorCount));
+        errorLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        errorLabel.setHorizontalAlignment(JLabel.CENTER);
+        errorLabel.setText("Errors: " + errorCount);
 
-        textPanel.setPreferredSize(new Dimension(boardWidth, 30));
-        textPanel.add(textLabel);
-        frame.add(textPanel,BorderLayout.NORTH);
+        scoreLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        scoreLabel.setText("Score: " + score);
 
+        restartButton = new JButton("Restart");
+        restartButton.setFont(new Font("Arial", Font.BOLD, 15));
+        restartButton.setPreferredSize(new Dimension(140, 20));
+        restartButton.setFocusable(false);
+        restartButton.setEnabled(false);
+
+        restartButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e){
+                if(!gameReady){
+                    return;
+                }
+                playSound("Click_Sound1.wav");
+
+                gameReady = false;
+                restartButton.setEnabled(false);
+                card1Selected = null;
+                card2Selected = null;
+                suffleCards();
+
+                for(int i=0; i< board.size(); i++){
+                    board.get(i).setIcon(cardSet.get(i).cardImageIcon);
+                }
+
+                errorCount = 0;
+                score = 0;
+                errorLabel.setText("Errors: "+errorCount);
+                scoreLabel.setText("Score: "+score);
+                hideCardTimer.start();
+            }
+        });
+
+        textPanel = new JPanel(new BorderLayout());
+        textPanel.setPreferredSize(new Dimension(boardWidth, 60)); // more height for 2 lines
+
+        // Panel for stacked labels (vertical layout)
+        JPanel labelPanel = new JPanel();
+        labelPanel.setLayout(new GridLayout(2, 1)); // 2 rows, 1 column
+        labelPanel.add(errorLabel); // Line 1
+        labelPanel.add(scoreLabel); // Line 2
+
+        textPanel.add(labelPanel, BorderLayout.WEST);
+        textPanel.add(restartButton, BorderLayout.EAST);
+        frame.add(textPanel, BorderLayout.SOUTH);
+        
         board = new ArrayList<JButton>();
         boardPanel.setLayout(new GridLayout(rows, columns));
         for (int i = 0 ; i< cardSet.size(); i++){
@@ -75,6 +129,45 @@ public class matchCards {
             cardButton.setOpaque(true);
             cardButton.setIcon(cardSet.get(i).cardImageIcon);
             cardButton.setFocusable(true);
+
+            cardButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e){
+                    if(!gameReady){
+                        return;
+                    }
+                    JButton cardButton = (JButton) e.getSource();
+                    if(cardButton.getIcon()== cardBackImageIcon){
+                        playSound("Click_Sound1.wav");
+                      if(card1Selected == null){
+                        card1Selected = cardButton;
+                        int index = board.indexOf(card1Selected);
+                        card1Selected.setIcon(cardSet.get(index).cardImageIcon);
+                      }  else if(card2Selected == null){
+                        card2Selected =cardButton;
+                        int index = board.indexOf(card2Selected);
+                        card2Selected.setIcon(cardSet.get(index).cardImageIcon);
+
+                        if(card1Selected.getIcon()!= card2Selected.getIcon()){
+                            errorCount += 1;
+                            errorLabel.setText("Error: " + Integer.toString(errorCount));
+                            hideCardTimer.start();
+                        }
+                        else{
+                            score++;
+                            scoreLabel.setText("Score: " + score);
+                            card1Selected = null;
+                            card2Selected = null;
+
+                            if(score == totalPairs){
+                                gameWon();
+                            }
+                        }
+                      }
+                    }
+                }
+            });
+            
             board.add(cardButton);
             boardPanel.add(cardButton);
 
@@ -83,42 +176,87 @@ public class matchCards {
         frame.pack();
         frame.setVisible(true);
 
+        hideCardTimer = new Timer(1200, new ActionListener() {
+             @Override
+             public void actionPerformed(ActionEvent e){
+                hideCards();
+             }
+        });
+        hideCardTimer.setRepeats(false);
+        hideCardTimer.start();
+
     }
 
     void setupCards(){
         cardSet = new ArrayList<card>();
         for (String cardName : cardList){
+            try{
             Image cardImg = new ImageIcon(getClass().getResource("./img/"+cardName + ".png")).getImage();
             ImageIcon cardImageIcon =  new ImageIcon(cardImg.getScaledInstance(cardWidth, cardHeight, java.awt.Image.SCALE_SMOOTH));
-
-            card card1 = new card(cardName, cardImageIcon);
-            card card2 = new card(cardName, cardImageIcon);
-
-            cardSet.add(card1);
-            cardSet.add(card2);
-
-            //card Card = new card(cardName, cardImageIcon);
-            //cardSet.add(Card);
+            cardSet.add(new card(cardName, cardImageIcon));
+            cardSet.add(new card(cardName, cardImageIcon));
+            }
+            catch(Exception e){
+                System.out.println("Image not found: " + cardName);
+            }
 
         }
         //cardSet.addAll(cardSet);
-
+        try{
         Image cardBackImg = new ImageIcon(getClass().getResource("./img/back card1.png")).getImage();
         cardBackImageIcon =  new ImageIcon(cardBackImg.getScaledInstance(cardWidth, cardHeight, java.awt.Image.SCALE_SMOOTH));
+        }catch(Exception e){
+            System.out.println("Back card Image not found ");
+        }
     }
 
     void suffleCards(){
         Collections.shuffle(cardSet);
-        System.out.println(cardSet);
-        //suffle cards
-        
-        
         }
-    
 
+        void hideCards(){
+            if(gameReady && card1Selected != null && card2Selected != null){
+                card1Selected.setIcon(cardBackImageIcon);
+                card1Selected = null;
+                card2Selected.setIcon(cardBackImageIcon);
+                card2Selected = null; 
+            }
+            else{
+                for (int i=0; i < board.size(); i++){
+                board.get(i).setIcon(cardBackImageIcon);
+            }
+            }
+            gameReady = true;
+            restartButton.setEnabled(true);
+        }
 
+        void gameWon(){
+           JLabel message = new JLabel("YOU WON!", SwingConstants.CENTER );
+           message.setFont(new Font("Arial", Font.BOLD, 20));
+           JOptionPane.showMessageDialog(message, message, "Game Won", JOptionPane.INFORMATION_MESSAGE);
 
-    public static void main(String[] args) throws Exception{
+            saveScoreToFile();
+
+        }
+        void saveScoreToFile(){
+            try (FileWriter writer = new FileWriter("score.txt", true)) {
+            writer.write("Score: " + score + ", Errors: " + errorCount + "\n");
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(frame, "Error saving score to file!");
+        }
+    }
+    void playSound(String soundFileName) {
+        try {
+            AudioInputStream audioInput = AudioSystem.getAudioInputStream(getClass().getResource("Sound/" + soundFileName));
+            Clip clip = AudioSystem.getClip();
+            clip.open(audioInput);
+            clip.start();
+        } catch (Exception e) {
+            System.out.println("Error playing sound: " + e.getMessage());
+        }
+    }   
+
+    public static void main(String[] args){
         matchCards matchcards = new matchCards();
     }
 }
