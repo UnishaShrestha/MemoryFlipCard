@@ -45,13 +45,16 @@ public class matchCards {
     JFrame frame = new JFrame("Memory Flip Card Game");
     JLabel errorLabel = new JLabel();
     JLabel scoreLabel = new JLabel();
+    JLabel moveLabel = new JLabel();
     JPanel textPanel = new JPanel(); 
     JPanel boardPanel = new JPanel();
     JButton restartButton = new JButton();
 
     int errorCount = 0;
     int score = 0;
+    int movecount = 0;
     final int totalPairs = 8;
+    final int maxErrors = 10;
 
     ArrayList<JButton> board;
     Timer hideCardTimer;
@@ -71,10 +74,13 @@ public class matchCards {
 
         errorLabel.setFont(new Font("Arial", Font.BOLD, 20));
         errorLabel.setHorizontalAlignment(JLabel.CENTER);
-        errorLabel.setText("Errors: " + errorCount);
+        errorLabel.setText("Errors: " + errorCount + " / " + maxErrors);
 
         scoreLabel.setFont(new Font("Arial", Font.BOLD, 20));
         scoreLabel.setText("Score: " + score);
+
+        moveLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        moveLabel.setText("Moves: "+ movecount);
 
         restartButton = new JButton("Restart");
         restartButton.setFont(new Font("Arial", Font.BOLD, 15));
@@ -102,8 +108,10 @@ public class matchCards {
 
                 errorCount = 0;
                 score = 0;
-                errorLabel.setText("Errors: "+errorCount);
+                movecount=0;
+                errorLabel.setText("Errors: "+errorCount + " / " + maxErrors);
                 scoreLabel.setText("Score: "+score);
+                moveLabel.setText("Moves: "+movecount);
                 hideCardTimer.start();
             }
         });
@@ -113,16 +121,17 @@ public class matchCards {
 
         // Panel for stacked labels (vertical layout)
         JPanel labelPanel = new JPanel();
-        labelPanel.setLayout(new GridLayout(2, 1)); // 2 rows, 1 column
+        labelPanel.setLayout(new GridLayout(3, 1)); // 2 rows, 1 column
         labelPanel.add(errorLabel); // Line 1
         labelPanel.add(scoreLabel); // Line 2
+        labelPanel.add(moveLabel);
 
         textPanel.add(labelPanel, BorderLayout.WEST);
         textPanel.add(restartButton, BorderLayout.EAST);
         frame.add(textPanel, BorderLayout.SOUTH);
         
         board = new ArrayList<JButton>();
-        boardPanel.setLayout(new GridLayout(rows, columns));
+        boardPanel.setLayout(new GridLayout(rows, columns, 5, 5));
         for (int i = 0 ; i< cardSet.size(); i++){
             JButton cardButton = new JButton();
             cardButton.setPreferredSize(new Dimension(cardWidth, cardHeight));
@@ -139,6 +148,10 @@ public class matchCards {
                     JButton cardButton = (JButton) e.getSource();
                     if(cardButton.getIcon()== cardBackImageIcon){
                         playSound("Click_Sound1.wav");
+
+                        movecount++;
+                        moveLabel.setText("Moves: "+ movecount);
+
                       if(card1Selected == null){
                         card1Selected = cardButton;
                         int index = board.indexOf(card1Selected);
@@ -150,8 +163,14 @@ public class matchCards {
 
                         if(card1Selected.getIcon()!= card2Selected.getIcon()){
                             errorCount += 1;
-                            errorLabel.setText("Error: " + Integer.toString(errorCount));
-                            hideCardTimer.start();
+                            errorLabel.setText("Error: " + errorCount + " / " + maxErrors);
+
+                            if(errorCount >= maxErrors){
+                                gameLost();
+                            }else{
+                                hideCardTimer.start();
+                            }
+
                         }
                         else{
                             score++;
@@ -238,6 +257,14 @@ public class matchCards {
             saveScoreToFile();
 
         }
+
+        void gameLost(){
+            JLabel message = new JLabel("YOU LOST!", SwingConstants.CENTER );
+            message.setFont(new Font("Arial", Font.BOLD, 20));
+            JOptionPane.showMessageDialog(message, message, "Game Over", JOptionPane.ERROR_MESSAGE);
+            saveScoreToFile();
+        }
+
         void saveScoreToFile(){
             try (FileWriter writer = new FileWriter("score.txt", true)) {
             writer.write("Score: " + score + ", Errors: " + errorCount + "\n");
@@ -257,6 +284,6 @@ public class matchCards {
     }   
 
     public static void main(String[] args){
-        matchCards matchcards = new matchCards();
+        matchCards matchcards  = new matchCards();
     }
 }

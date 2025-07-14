@@ -4,3 +4,15 @@ Score: 8, Errors: 15
 Score: 8, Errors: 7
 Score: 8, Errors: 8
 Score: 8, Errors: 15
+Score: 8, Errors: 13
+Score: 8, Errors: 7
+Score: 8, Errors: 9
+Score: 8, Errors: 7
+Score: 3, Errors: 10
+Score: 4, Errors: 10
+Score: 4, Errors: 10
+Score: 8, Errors: 8
+Score: 1, Errors: 10
+Score: 8, Errors: 7
+Score: 8, Errors: 8
+Score: 4, Errors: 10
